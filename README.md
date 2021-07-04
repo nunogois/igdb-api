@@ -7,5 +7,4 @@
 - [x] Create repo;
 - [x] Basic setup;
 - [x] GET /;
-- [x] POST /list;
-- [x] POST /game;
+- [x] POST /search; (supporting popular, search and id requests)
