@@ -8,4 +8,4 @@
 - [x] Basic setup;
 - [x] GET /;
 - [x] POST /list;
-- [ ] POST /game;
+- [x] POST /game;
