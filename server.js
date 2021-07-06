@@ -1,10 +1,16 @@
 const express = require('express')
 const cors = require('cors')
 const axios = require('axios')
+const asyncRedis = require('async-redis')
 
 require('dotenv').config()
 
 const app = express()
+const redis = asyncRedis.createClient()
+
+redis.on('error', function (err) {
+  console.log('Error ' + err)
+})
 
 app.use(cors())
 app.use(express.json())
@@ -34,7 +40,7 @@ app.get('/', ({ res }) => {
 
 app.post('/search', check_token, async (req, res) => {
   try {
-    await twitch_token()
+    let redisExpire = 4 * 60 * 60 // 4h
 
     let query = `fields name, first_release_date, platforms.platform_logo.url, cover.url, total_rating, game_modes.name, summary, 
     genres.name, involved_companies.company.name, platforms.name, screenshots.url, similar_games.name, 
@@ -54,23 +60,37 @@ app.post('/search', check_token, async (req, res) => {
 
     const id = +req.body?.id
     if (!isNaN(id)) {
+      redisExpire = 24 * 60 * 60 // 24h
+
       query = `fields name, first_release_date, platforms.platform_logo.url, cover.url, total_rating, game_modes.name, summary, 
       genres.name, involved_companies.company.name, platforms.name, screenshots.url, similar_games.name, 
       similar_games.cover.url, themes.name, url;
       where id=${id};`
     }
+    const value = await redis.get(`game-search-expo-query-${query}`)
 
-    console.log(query)
+    if (value) res.json(JSON.parse(value))
+    else {
+      await twitch_token()
+      const { data } = await axios.post(
+        'https://api.igdb.com/v4/games',
+        query,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Client-ID': process.env.CLIENT_ID,
+            'Content-Type': 'text/plain'
+          }
+        }
+      )
 
-    const { data } = await axios.post('https://api.igdb.com/v4/games', query, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Client-ID': process.env.CLIENT_ID,
-        'Content-Type': 'text/plain'
-      }
-    })
-
-    res.json(data)
+      await redis.setex(
+        `game-search-expo-query-${query}`,
+        redisExpire,
+        JSON.stringify(data)
+      )
+      res.json(data)
+    }
   } catch (err) {
     res.status(500).send(err)
   }
