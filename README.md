@@ -9,4 +9,4 @@ Being used by: [game-search-expo](https://github.com/nunogois/game-search-expo)
 - [x] Create repo;
 - [x] Basic setup;
 - [x] GET /;
-- [x] POST /search; (supporting popular, search and id requests)
+- [x] GET /games; (supporting popular, search and id requests)
