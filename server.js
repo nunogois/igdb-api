@@ -101,18 +101,14 @@ app.get('/games', check_token, async (req, res) => {
   try {
     let redisExpire = 4 * 60 * 60 // 4h
 
-    let query = `fields name, first_release_date, platforms.platform_logo.url, cover.url, total_rating, game_modes.name, summary, 
-    genres.name, involved_companies.company.name, platforms.name, screenshots.url, similar_games.name, 
-    similar_games.cover.url, themes.name, url;
+    let query = `fields name, first_release_date, platforms.abbreviation, cover.url, total_rating;
     sort first_release_date desc;
     where rating >= 80;
     where total_rating_count > 10;`
 
     const search = req.query?.search?.trim().replace(/\W/gim, ' ')
     if (search) {
-      query = `fields name, first_release_date, platforms.platform_logo.url, cover.url, total_rating, game_modes.name, summary, 
-      genres.name, involved_companies.company.name, platforms.name, screenshots.url, similar_games.name, 
-      similar_games.cover.url, themes.name, url;
+      query = `fields name, first_release_date, platforms.abbreviation, cover.url, total_rating;
       search "${search}";
       where version_parent = null;`
     }
@@ -121,7 +117,7 @@ app.get('/games', check_token, async (req, res) => {
     if (!isNaN(id)) {
       redisExpire = 24 * 60 * 60 // 24h
 
-      query = `fields name, first_release_date, platforms.platform_logo.url, cover.url, total_rating, game_modes.name, summary, 
+      query = `fields name, first_release_date, cover.url, total_rating, game_modes.name, summary, 
       genres.name, involved_companies.company.name, platforms.name, screenshots.url, similar_games.name, 
       similar_games.cover.url, themes.name, url;
       where id=${id};`
