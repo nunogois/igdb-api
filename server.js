@@ -2,11 +2,13 @@ const express = require('express')
 const cors = require('cors')
 const axios = require('axios')
 const asyncRedis = require('async-redis')
+const hltb = require('howlongtobeat')
 
 require('dotenv').config()
 
 const app = express()
 const redis = asyncRedis.createClient()
+const hltbService = new hltb.HowLongToBeatService()
 
 redis.on('error', function (err) {
   console.error(err)
@@ -93,7 +95,8 @@ app.post('/search', check_token, async (req, res) => {
       res.json(data)
     }
   } catch (err) {
-    res.status(500).send(err)
+    console.error(err)
+    res.sendStatus(500)
   }
 })
 
@@ -102,9 +105,11 @@ app.get('/games', check_token, async (req, res) => {
     let redisExpire = 4 * 60 * 60 // 4h
 
     let query = `fields name, first_release_date, platforms.abbreviation, cover.url, total_rating;
-    sort first_release_date desc;
-    where rating >= 80;
-    where total_rating_count > 10;`
+    where rating > 69 &
+    aggregated_rating_count > 0 &
+    total_rating_count > 1 &
+    version_parent = null;
+    sort first_release_date desc;`
 
     const search = req.query?.search?.trim().replace(/\W/gim, ' ')
     if (search) {
@@ -119,7 +124,7 @@ app.get('/games', check_token, async (req, res) => {
 
       query = `fields name, first_release_date, cover.url, total_rating, game_modes.name, summary, 
       genres.name, involved_companies.company.name, platforms.name, screenshots.url, similar_games.name, 
-      similar_games.cover.url, themes.name, url;
+      similar_games.cover.url, themes.name, multiplayer_modes.*, url;
       where id=${id};`
     }
     const value = await redis.get(`game-search-expo-query-${query}`)
@@ -147,7 +152,83 @@ app.get('/games', check_token, async (req, res) => {
       res.json(data)
     }
   } catch (err) {
-    res.status(500).send(err)
+    console.error(err)
+    res.sendStatus(500)
+  }
+})
+
+app.get('/opencritic', check_token, async (req, res) => {
+  try {
+    const name = req.query?.name
+
+    if (name) {
+      const value = await redis.get(`game-search-expo-opencritic-${name}`)
+      if (value) {
+        res.json(JSON.parse(value))
+        return
+      } else {
+        redisExpire = 24 * 60 * 60 // 24h
+        const { id, dist } = await axios
+          .get(
+            `https://api.opencritic.com/api/game/search?criteria=${encodeURIComponent(
+              name
+            )}`
+          )
+          .then(res => res.data[0])
+
+        if (id && dist <= 0.4) {
+          const data = await axios
+            .get(`https://api.opencritic.com/api/game/${id}`)
+            .then(res => res.data)
+
+          await redis.setex(
+            `game-search-expo-opencritic-${name}`,
+            redisExpire,
+            JSON.stringify(data)
+          )
+          res.json(data)
+          return
+        }
+      }
+    }
+
+    res.sendStatus(404)
+  } catch (err) {
+    console.error(err)
+    res.sendStatus(500)
+  }
+})
+
+app.get('/howlongtobeat', check_token, async (req, res) => {
+  try {
+    const name = req.query?.name
+
+    if (name) {
+      const value = await redis.get(`game-search-expo-howlongtobeat-${name}`)
+      if (value) {
+        res.json(JSON.parse(value))
+        return
+      } else {
+        redisExpire = 24 * 60 * 60 // 24h
+        const data = await hltbService.search(name).then(res => res[0])
+        console.log(name, data)
+
+        if (data.similarity >= 0.75) {
+          await redis.setex(
+            `game-search-expo-howlongtobeat-${name}`,
+            redisExpire,
+            JSON.stringify(data)
+          )
+          res.json(data)
+          return
+        }
+      }
+    }
+
+    res.sendStatus(404)
+  } catch (err) {
+    console.error(err)
+    res.sendStatus(500)
   }
 })
 

@@ -1,6 +1,6 @@
 {
   "name": "igdb-api",
-  "version": "0.0.1",
+  "version": "1.2.0",
   "description": "IGDB Proxy API.",
   "authors": "Nuno Góis <github@nunogois.com>",
   "scripts": {
@@ -11,6 +11,7 @@
     "axios": "^0.21.1",
     "cors": "^2.8.5",
     "dotenv": "^10.0.0",
-    "express": "^4.17.1"
+    "express": "^4.17.1",
+    "howlongtobeat": "^1.3.1"
   }
 }
